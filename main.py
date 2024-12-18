@@ -1,63 +1,74 @@
 import random
-import time
-
-import numpy as np
-from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
-from sklearn.datasets import load_iris
-from sklearn.metrics import silhouette_score
+import pygame
+from sklearn.cluster import DBSCAN
 
 
-def silhouette_method():
-    sse = []
-    for k in range(2, 11):
-        kmeans = KMeans(n_clusters=k, random_state=42)
-        kmeans.fit_predict(data)
-        sse.append(silhouette_score(data, kmeans.labels_))
-    plt.plot(range(2, 11), sse, marker='o')
-    plt.title('Метод "Силуэтов"')
-    plt.xlabel('Количество кластеров')
-    plt.ylabel('Оценка метода')
-    plt.show()
+class Point:
+    def __init__(self, _x, _y):
+        self.x = _x
+        self.y = _y
+        self.label = 0
+
+    def distance(self, point):
+        return ((self.x - point.x) ** 2 + (self.y - point.y) ** 2) ** 0.5
 
 
-def my_k_means(points, k):
-    centers = [points[i] for i in range(k)]
-    prev_res = 0
-    while True:
-        res = 0
-        summator = [[0] * len(points[0]) for _ in range(k)]
-        p_class = [0 for _ in range(len(data))]
-        for p_i, point in enumerate(points):
-            lens = [sum([(c - p) ** 2 for c, p in zip(centers[i], point)]) ** 0.5 for i in range(len(centers))]
-            ind = lens.index(min(lens))
-            summator[ind] = [c + p for c, p in zip(summator[ind], point)]
-            p_class[p_i] = ind
-            res += min(lens)
+pygame.init()
+screen = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
+font = pygame.font.Font(None, 36)
+clock = pygame.time.Clock()
+screen.fill((150, 150, 150))
 
-        centers = [[d / p_class.count(i) for d in summator[i]] for i in range(k)]
+points = []
+play, drawing = True, False
+while play:
+    clock.tick(80)
 
-        show_results(p_class, centers)
+    if drawing:
+        x, y = pygame.mouse.get_pos()
+        for _ in range(random.randint(1, 10)):
+            dx, dy = random.randint(-20, 20), random.randint(-20, 20)
+            pygame.draw.circle(screen, (150, 0, 0), (x + dx, y + dy), 3)
+            points.append(Point(x + dx, y + dy))
 
-        if abs(res - prev_res) < 10**-3:
-            return p_class
-        prev_res = res
+    pygame.draw.rect(screen, (100, 100, 100), (50, 500, 150, 50), border_radius=3)
+    text = font.render('RESTART', True, (0, 0, 0))
+    screen.blit(text, (70, 515))
 
+    pygame.draw.rect(screen, (100, 100, 100), (600, 500, 150, 50), border_radius=3)
+    text = font.render('RUN', True, (0, 0, 0))
+    screen.blit(text, (650, 515))
 
-def show_results(colors, centroids):
-    fig, ax = plt.subplots(4, 4)
-    for i in range(4):
-        for j in range(4):
-            if i == j:
-                continue
-            ax[i][j].scatter(data[:, i], data[:, j], c=colors)
-            ax[i][j].scatter([centroid[i] for centroid in centroids],
-                             [centroid[j] for centroid in centroids], c='red', marker='x')
-    plt.show()
-    time.sleep(1)
+    pygame.display.update()
 
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            play = False
 
-dataset = load_iris()
-data = dataset['data']
+        if event.type == pygame.WINDOWRESIZED:
+            screen.fill((150, 150, 150))
+            for p in points:
+                pygame.draw.circle(screen, (150, 0, 0), (p.x, p.y), 3)
 
-my_k_means([(d[0], d[1], d[2], d[3]) for d in data], 3)
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            x, y = pygame.mouse.get_pos()
+            if 60 < x < 210 and 500 < y < 550:
+                screen.fill((150, 150, 150))
+                points.clear()
+            elif 600 < x < 750 and 500 < y < 550:
+                dbscan = DBSCAN(eps=50, min_samples=5)
+                dbscan.fit_predict([[p.x, p.y] for p in points])
+                screen.fill((150, 150, 150))
+                colors = [(150, 0, 0), (0, 150, 0), (0, 0, 150), (150, 0, 150), (0, 150, 150)]
+                for i, p in enumerate(points):
+                    if dbscan.labels_[i] < len(colors):
+                        p.label = dbscan.labels_[i]
+
+                screen.fill((150, 150, 150))
+                for p in points:
+                    pygame.draw.circle(screen, colors[p.label], (p.x, p.y), 3)
+            else:
+                drawing = True
+
+        if event.type == pygame.MOUSEBUTTONUP:
+            drawing = False
